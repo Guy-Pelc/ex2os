@@ -4,10 +4,14 @@
 #include "blackbox.h"
 
 using namespace std;
-
+Thread::~Thread()
+{
+	cout<<"destructor with tid "<<tid<<endl;
+}
 
 Thread::Thread(int tid, void (*f)(void))
 {
+	status = READY;
 	cout<<"hi from thread function constructor"<<endl;
 	this->tid = tid;
 
@@ -24,6 +28,7 @@ Thread::Thread(int tid, void (*f)(void))
 
 Thread::Thread(int tid)
 {
+	status = RUNNING;
 	cout<<"hi from thread main constructor"<<endl;
 	this->tid = tid;
 }

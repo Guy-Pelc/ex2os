@@ -11,11 +11,6 @@
 
 /* External interface */
 
-///TEMP CODE///////////////////////
-
-int say_hi();
-
-///TEMP CODE END/////
 
 /*
  * Description: This function initializes the thread library.

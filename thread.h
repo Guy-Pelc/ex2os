@@ -2,6 +2,8 @@
 
 #define STACK_SIZE 4096
 
+enum Status {READY,BLOCKED,RUNNING};
+
 class Thread
 {
 private:
@@ -9,8 +11,10 @@ private:
 	
 	
 public:
+	Status status;
 	int tid = 0;
 	sigjmp_buf env = {0};
 	Thread(int tid);
 	Thread(int tid, void (*f)(void));
+	~Thread();
 };
