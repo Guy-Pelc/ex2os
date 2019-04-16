@@ -24,6 +24,8 @@ int running_tid;
 
 int _quantum_usecs;
 
+int total_quantums;
+
 
 
 void inc_running_tid()
@@ -44,8 +46,10 @@ int uthread_get_tid()
 /** on failiure returns NULL, success returns pointer to thread*/
 Thread* get_thread_by_id(int id)
 {
+	// cout<<"get_thread_by_id"<<endl;
 	for (int i=0;i<MAX_THREAD_NUM;i++)
 	{
+		if (threads[i] == nullptr) {continue;}
 		if (threads[i]->tid == id) {return threads[i];}
 	}
 	return nullptr;
@@ -111,7 +115,7 @@ int uthread_terminate(int tid)
 /** pops first ready thread in queue and returns it*/
 Thread* get_next_ready_pthread()
 {
-	cout<<"get_next_ready_pthread"<<endl;
+	// cout<<"get_next_ready_pthread"<<endl;
 	fflush(stdout);
 	//v2
 	Thread* next_pthread = ready_pthreads[0];
@@ -168,7 +172,8 @@ void swap()
 
 		cout<<"now changing running_tid to "<<next_pthread->tid<<endl;
 		
-		
+		next_pthread->quantums++;
+		total_quantums++;
 		next_pthread->status = RUNNING;
 		running_pthread = next_pthread;
 		running_tid = next_pthread->tid;
@@ -200,7 +205,7 @@ int get_first_free_tid()
 
 void print_threads()
 {
-	for (int i = 0; i<2; ++i)
+	for (int i = 0; i<1; ++i)
 	{
 		Thread* cur_thread = threads[i];
 		cout<<"threads["<<i<<"]="<<cur_thread;
@@ -219,8 +224,23 @@ void print_threads()
 		cout<<ready_pthreads[i]->tid<<",";
 	}
 	cout<<endl;
+	cout<<"quantums: ";
+	for (unsigned int i = 0; i<MAX_THREAD_NUM;++i)
+	{	
+		if (threads[i] != NULL)
+		{
+			cout<<i<<":"<<uthread_get_quantums(i)<<",";
+		}
+	}
+	cout<<endl;
+	cout<<"total_quantums: "<<total_quantums<<endl;
+	cout<<endl;
 		// cout<<"threads[0,1,2,3] = "<<threads[0]<<","<<threads[1]<<","<<threads[2]<<","<<threads[3]<<endl;
 		// cout<<"status = "<<threads[0]->status<<","<<threads[1]->status<<","<<threads[2]->status<<","<<threads[3]->status<<endl;
+}
+int uthread_get_quantums(int tid)
+{
+	return get_thread_by_id(tid)->quantums;
 }
 int uthread_spawn(void (*f)(void))
 {
@@ -239,10 +259,13 @@ int uthread_init(int quantum_usecs)
 {
 	cout<<"uthreads_init"<<endl;
 	_quantum_usecs = quantum_usecs;
+
 	//init main thread
 	threads[0] = new Thread(0);
 	running_tid = 0;
 	running_pthread = threads[0];
+	running_pthread->quantums++;
+	total_quantums++;
 
 	//set hanlder
 	struct sigaction sa = {0};
@@ -298,6 +321,10 @@ void wake_thread(int id)
 {
 	cout<<"wake thread: "<<id<<endl<<endl;
 	Thread* t = get_thread_by_id(id);
+	// in case thread doesn't exist - was terminated before wake
+	if (t == nullptr) {cout<<"thread doesnt exist, returning"<<endl; return;}
+
+	cout<<"ehre 325"<<endl;
 	t->status = READY;
 	ready_pthreads.push_back(t);
 	return;

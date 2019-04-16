@@ -5,6 +5,11 @@
 
 using namespace std;
 
+void d()
+{
+	uthread_sleep(5*pow(10,6));
+	while(1);
+}
 void f()
 {
 	int i = 0;
@@ -45,7 +50,16 @@ void h()
 	// uthread_sleep(3*pow(10,6));
 	while(1);
 }
+
 int main()
+{
+	uthread_init(999999);
+	uthread_spawn(&d);
+	for(int i;i<6*pow(10,7);++i);
+	uthread_terminate(1);
+	while(1);
+}
+int mai4n()
 {
 	cout<<"hello world"<<endl;
 	uthread_init(999999);

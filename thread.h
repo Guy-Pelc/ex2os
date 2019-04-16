@@ -14,6 +14,7 @@ private:
 	
 	
 public:
+	int quantums = 0;
 	Status status;
 	int tid = 0;
 	sigjmp_buf env = {0};
