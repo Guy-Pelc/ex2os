@@ -238,6 +238,7 @@ void print_threads()
 		// cout<<"threads[0,1,2,3] = "<<threads[0]<<","<<threads[1]<<","<<threads[2]<<","<<threads[3]<<endl;
 		// cout<<"status = "<<threads[0]->status<<","<<threads[1]->status<<","<<threads[2]->status<<","<<threads[3]->status<<endl;
 }
+int uthread_get_total_quantums() {return total_quantums;}
 int uthread_get_quantums(int tid)
 {
 	return get_thread_by_id(tid)->quantums;

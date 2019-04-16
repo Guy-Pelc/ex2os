@@ -1,0 +1,112 @@
+stuff to fix/test:
+
+_______________________________
+1) general:
+
+-check error format:
+
+system call fails (such as memory alloc), print to stderr:
+
+"system error: text\n"
+where text is a descroption of the error, then exit(1);
+
+uthread functoin fails (such as invalid input):
+"thread library error: text\n"
+where text is description, then return appropriate value (do not exit program);
+
+-test error formats are correct!
+
+- think where masks are needed (for example while terminating)
+-check what happens to a signal if it is masked (when it is unmasked, will it immediatly signal?)
+
+
+-correct return values
+-add checks for things that might fail (also in helper funcitons)
+
+-read questions in moodle
+
+-test with tomer's tests
+______________________________
+2) uthread_terminate, 
+
+-after terminate/block thread by itself, move directly to swap without waiting for quantum to end.
+
+-make sure it removes the thread from all control structs.
+
+-if no such id exists add ERROR
+
+-if tid==0, release all memory and do exit(0)
+
+-think when this function might fail and return -1;
+
+-make sure function does not return if thread terminates itself.
+
+________________________________
+3) uthread_block:
+
+-after terminate/block thread by itself, move directly to swap without waiting for quantum to end.
+
+-if no such tid exists add ERROR
+
+-if blocking main thread add ERROR
+
+-check blocking a blocked state - no effect (is it fail or success?)
+
+-think when this function should fail and return -1;
+
+-if thread is blocked while sleeping, it needs to wait for both the sleeping period to end and for another thread to resume it!
+
+____________________________________________
+4) uthread_spawn
+-in spawn, make sure we do not exceed MAX_THREADS, else fail (return -1)
+
+-change return val to id of created thread.
+_______________________________________________
+5) uthread_init:
+-fix quantum size to support over 999,999 microsecs
+
+-check for non-positive input, error otherwise
+
+-think when this function can fail and return -1.
+
+________________________________________________
+6) uthread_resume:
+
+-make sure resuming ready or running has no effect (is it fail or success?)
+
+-if no such thread exists - ADD ERROR
+
+-think when this function can fail and return -1;
+
+
+_______________________________________________
+
+7) uthread_sleep:
+
+-if main thread calls this - ADD ERROR
+
+-add immediate scheduling decision.
+
+-think when this function could fail and return -1;
+
+
+
+_______________________________________________
+8) uthread_get_tid:
+
+-consider removing "running tid" value, use only running_pthread->tid.
+
+_______________________________________________
+9) uthread_get_total_quantums:
+
+-consider removing total_quantums and keeping a counter for deleted quantums.
+then get_total_quantums would sum all existing quantums plus deleted ones.
+
+
+_____________________________________________
+10) uthread_get_quantums:
+
+-if no such thread exists ERROR
+
+think when this could fail and return -1;
+______________________________________________
