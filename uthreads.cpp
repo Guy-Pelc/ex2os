@@ -19,7 +19,7 @@ Thread* running_pthread;
 deque<Thread*> ready_pthreads;
 SleepingThreadsList sleeping_threads;
 
-int running_tid;
+// int running_tid;
 
 int _quantum_usecs;
 
@@ -27,15 +27,15 @@ int total_quantums;
 
 
 
-void inc_running_tid()
-{
-	running_tid++;
-	if (running_tid == MAX_THREAD_NUM)
-	{
-		running_tid = 0;
-	}
-	return;
-}
+// void inc_running_tid()
+// {
+// 	running_tid++;
+// 	if (running_tid == MAX_THREAD_NUM)
+// 	{
+// 		running_tid = 0;
+// 	}
+// 	return;
+// }
 
 int uthread_get_tid()
 {
@@ -159,7 +159,9 @@ int uthread_terminate(int tid)
 }
 
 
-/** pops first ready thread in queue and returns it*/
+/** pops first ready thread in queue and returns it
+* does not fail since main is always ready/running 
+*/
 Thread* get_next_ready_pthread()
 {
 	// cout<<"get_next_ready_pthread"<<endl;
@@ -201,17 +203,16 @@ void swap()
 	int res;
 	// if running thread terminates itself, save nothing
 	if (running_pthread == nullptr) {res = 0;}
-	// if running thread blocks itself, save state
-	else if (running_pthread->status == BLOCKED)
+	// if running thread blocks itself or wakes itself, save state
+	else if (running_pthread->status != RUNNING)
 		res = sigsetjmp(running_pthread->env,1);
-	// save state and push to end of ready line
+	// else save state and push to end of ready line
 	else
 	{
 		running_pthread->status = READY;	
 		ready_pthreads.push_back(running_pthread);
 		res = sigsetjmp(running_pthread->env,1);
 	}
-
 
 	
 	if (res == 0) 
@@ -224,10 +225,10 @@ void swap()
 		total_quantums++;
 		next_pthread->status = RUNNING;
 		running_pthread = next_pthread;
-		running_tid = next_pthread->tid;
+		// running_tid = next_pthread->tid;
 
 		print_threads();
-		siglongjmp(threads[running_tid]->env,threads[running_tid]->tid);
+		siglongjmp(running_pthread->env,running_pthread->tid);
 	}
 	return;
 	
@@ -296,6 +297,12 @@ void print_threads()
 int uthread_get_total_quantums() {return total_quantums;}
 int uthread_get_quantums(int tid)
 {
+	Thread* pt = get_thread_by_id(tid);
+	if (pt == nullptr)
+	{
+		cerr<<"thread library error: no thread exists with given tid"<<endl;
+		return -1;
+	}
 	return get_thread_by_id(tid)->quantums;
 }
 int uthread_spawn(void (*f)(void))
@@ -339,7 +346,7 @@ int uthread_init(int quantum_usecs)
 		cerr<<"system error: failed to allocate memory to thread"<<endl;
 		return -1;
 	}
-	running_tid = 0;
+	// running_tid = 0;
 	running_pthread = threads[0];
 	running_pthread->quantums++;
 	total_quantums++;
@@ -347,12 +354,20 @@ int uthread_init(int quantum_usecs)
 	//set hanlder
 	struct sigaction sa = {0};
 	sa.sa_handler = &timer_handler;
-	sigaction(SIGVTALRM, &sa, NULL);
+	if (sigaction(SIGVTALRM, &sa, NULL)<0)
+	{
+		cerr<<"system error: failed to update sigaction for virtual timer"<<endl;
+		return -1;
+	}
 	
 	//set sleep handler
 	struct sigaction sa2 = {0};
 	sa2.sa_handler = &s_timer_handler;
-	sigaction(SIGALRM,&sa2,nullptr);
+	if (sigaction(SIGALRM,&sa2,nullptr)<0)
+	{
+		cerr<<"system error: failed to update sigaction for real timer"<<endl;
+		return -1;
+	}
 
 	set_vtimer();
 	
@@ -360,7 +375,7 @@ int uthread_init(int quantum_usecs)
 }
 
 /** currently supports only up to 999,999 microsecs*/
-void set_vtimer()
+int set_vtimer()
 {
 		//set timer
 	itimerval tv = {0};
@@ -372,8 +387,12 @@ void set_vtimer()
 	tv.it_value.tv_sec = _quantum_usecs / 1000000;
 
 	//start timer
-	setitimer(ITIMER_VIRTUAL, &tv, NULL);
-	return;
+	if (setitimer(ITIMER_VIRTUAL, &tv, NULL)<0)
+	{
+		cerr<<"system error: failed to set virtual timer"<<endl;
+		return -1;
+	}
+	return 0;
 }
 
 int uthread_sleep(unsigned int usec)
@@ -387,9 +406,28 @@ int uthread_sleep(unsigned int usec)
 
 	cout<<endl<<"sleep"<<endl<<endl;
 	running_pthread->sleep();
-	sleeping_threads.add(running_pthread->tid,calc_wake_up_timeval(usec));
-	start_s_timer();
 
+	print_threads();
+
+	// //remove from ready_threads
+	// remove_from_ready_pthreads();
+	
+
+	timeval wake_up_timeval; 
+	if (calc_wake_up_timeval(usec, &wake_up_timeval)<0)
+		{
+			return -1;
+		}
+	
+	
+	sleeping_threads.add(running_pthread->tid, wake_up_timeval);
+	if (start_s_timer()<0)
+		{return -1;}
+
+	//immedidate scheduling decision:
+	if (set_vtimer()<0) {return -1;}
+
+	swap();
 
 	// print_s_threads();
 	return 0;
@@ -397,7 +435,7 @@ int uthread_sleep(unsigned int usec)
 
 void s_timer_handler(int signum)
 {
-	cout<<endl<<"s_timer_handler,"<<endl;
+	cout<<endl<<"s_timer_handler"<<endl;
 	wake_thread(sleeping_threads.peek()->id);
 	sleeping_threads.pop();
 	if (sleeping_threads.peek() != nullptr)
@@ -410,48 +448,82 @@ void s_timer_handler(int signum)
 void wake_thread(int id)
 {
 	cout<<"wake thread: "<<id<<endl<<endl;
-	Thread* pthread_to_block = get_thread_by_id(id);
-	// in case thread doesn'pthread_to_block exist - was terminated before wake
-	if (pthread_to_block == nullptr) {cout<<"thread doesnt exist, returning"<<endl; return;}
+	Thread* pthread_to_wake = get_thread_by_id(id);
+	// in case thread pthread_to_wake doesnt exist - was terminated before wake, do nothing
+	if (pthread_to_wake == nullptr) {cout<<"thread doesnt exist, returning"<<endl; return;}
 
-	cout<<"ehre 325"<<endl;
-	pthread_to_block->status = READY;
-	ready_pthreads.push_back(pthread_to_block);
+	// cout<<"ehre 325"<<endl;
+
+	pthread_to_wake->wake();
+	if (pthread_to_wake->status == READY)
+	{
+		ready_pthreads.push_back(pthread_to_wake);	
+	}
 	return;
 }
 
-timeval calc_wake_up_timeval(int usecs_to_sleep) {
+//returns -1 on failiure
+int calc_wake_up_timeval(int usecs_to_sleep,timeval* wake_up_timeval) {
 	// cout<<"calc_wake_up_timeval"<<usecs_to_sleep<<endl;
-	timeval now, time_to_sleep, wake_up_timeval;
-	gettimeofday(&now, nullptr);
+	timeval now, time_to_sleep;
+	if (gettimeofday(&now, nullptr)<0)
+	{
+		cerr<< "system error: failed to get time of day"<<endl;
+		return -1;
+	}
 	time_to_sleep.tv_sec = usecs_to_sleep / 1000000;
 	time_to_sleep.tv_usec = usecs_to_sleep % 1000000;
-	timeradd(&now, &time_to_sleep, &wake_up_timeval);
+	timeradd(&now, &time_to_sleep, wake_up_timeval);
 
 	// cout<<endl;
-	return wake_up_timeval;
+	return 0;
 }
-void stop_s_timer()
+int stop_s_timer()
 {
 	cout<<"stop_s_timer"<<endl;
 	itimerval tv = {0};
-	setitimer(ITIMER_REAL, &tv,nullptr);
-	return;
+	if (setitimer(ITIMER_REAL, &tv,nullptr)<0)
+	{
+		cerr<<"system error: failed to set real timer"<<endl;
+		return -1;
+	}
+	return 0;
 }
 
 
-void start_s_timer()
+int start_s_timer()
 {
 	cout<<"start_s_timer"<<endl;
 
 	timeval now, timer_val;
-	gettimeofday(&now,nullptr);
+	if (gettimeofday(&now,nullptr)<0)
+	{
+		cerr<< "system error: failed to get time of day"<<endl;
+		return -1;
+	}
 
 
 	timersub(&(sleeping_threads.peek()->awaken_tv),&now,&timer_val);
 	itimerval tv = {0};
 	tv.it_value = timer_val;
+
+	// will repeat until it finds a sleeping thread with non-negative timeval 
+	// until wake time. 
+	//if there is not any thread like that, handler will not call start_s_timer 
+	if ((timer_val.tv_usec<0 or timer_val.tv_sec<0) or 
+		(timer_val.tv_usec==0 and timer_val.tv_sec==0))
+	{
+		s_timer_handler(0);
+		return 0;
+	}
+
 	
-	setitimer(ITIMER_REAL,&tv,nullptr);
+	if (setitimer(ITIMER_REAL,&tv,nullptr)<0)
+	{
+		cerr<< "system error: failed to set real timer"<<endl;
+		return -1;
+	}
+
+	return 0;
 
 }

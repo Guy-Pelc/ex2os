@@ -70,18 +70,22 @@ void ja()
 }
 void a()
 {
-	uthread_block(0);
-	uthread_resume(0);
-	uthread_resume(15);
+	uthread_sleep(1*pow(10,6));
+	
 	while(1);
 }
 int main()
 {
-	assert(0==uthread_init(3*pow(10,6)+400));
-	for (int i=0;i<3;++i)
-	{
-		cout<<uthread_spawn(&a)<<endl;	
-	}
+	uthread_init(pow(10,6));
+
+	uthread_spawn(&a);
+	uthread_spawn(&a);
+	// for(int i;i<6*pow(10,7);++i);
+	// uthread_block(1);
+	for(int i;i<2*pow(10,7);++i);
+	uthread_terminate(1);
+	// uthread_terminate(1);
+	// uthread_spawn(&a);
 	
 
 	while(1);

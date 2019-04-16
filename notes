@@ -3,6 +3,9 @@ stuff to fix/test:
 _______________________________
 1) general:
 
+- fix mask while printing errors, while swap, block, terminate, wake
+(perhaps in all uthread_functions)
+
 -check error format:
 
 system call fails (such as memory alloc), print to stderr:
@@ -94,39 +97,39 @@ _______________________________________________
 
 V if main thread calls this - ADD ERROR
 
--add immediate scheduling decision.
+V add immediate scheduling decision.
 
--think when this function could fail and return -1;
+V think when this function could fail and return -1;
 
--when it is time to wake, if next sleeping thread's time to wake is earlier than current time (negative difference timeval), wake that thread immediately and set timer for next thread that still has time left.
+V when it is time to wake, if next sleeping thread's time to wake is earlier than current time (non-positive timeval), wake that thread immediately and set timer for next thread that still has time left.
 
--check that sleeping thread that is terminated is removed from sleeping list, and does not cause error.
+V check that sleeping thread that is terminated is removed from sleeping list, and does not cause error.
 
--check that sleep(0) works: should move the running thread to back of ready queue (and no need for sleep, since setting timer to 0 timeval will stop the timer.; also, this will not be checked by course staff 
+V check that sleep(0) works: should move the running thread to back of ready queue (and no need for sleep, since setting timer to 0 timeval will stop the timer.; also, this will not be checked by course staff 
 
--consider adding a sleeping flag to threads, since they can be sleeping+blocked or any combination of them.
+V consider adding a sleeping flag to threads, since they can be sleeping+blocked or any combination of them.
 
--if thread is blocked while sleeping, it needs to wait for both the sleeping period to end and for another thread to resume it!
+Vif thread is blocked while sleeping, it needs to wait for both the sleeping period to end and for another thread to resume it!
 
--consider checking blocking , unblocking and blocking again a sleeping function.
+V consider checking blocking , unblocking and blocking again a sleeping function.
 
--check if there is single sleeping function that is terminated/blocked, what happens when timer expires. 
+V check if there is single sleeping function that is terminated/blocked, what happens when timer expires. 
 _______________________________________________
 8) uthread_get_tid:
 
--consider removing "running tid" value, use only running_pthread->tid.
+V consider removing "running tid" value, use only running_pthread->tid.
 
 _______________________________________________
 9) uthread_get_total_quantums:
 
--consider removing total_quantums and keeping a counter for deleted quantums.
+V (not needed) consider removing total_quantums and keeping a counter for deleted quantums.
 then get_total_quantums would sum all existing quantums plus deleted ones.
 
 
 _____________________________________________
 10) uthread_get_quantums:
 
--if no such thread exists ERROR
+V if no such thread exists ERROR
 
-think when this could fail and return -1;
+V think when this could fail and return -1;
 ______________________________________________

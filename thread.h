@@ -23,15 +23,22 @@ public:
 	Status status;
 	int tid = 0;
 	sigjmp_buf env = {0};
-	void resume() 
-	{
+	void resume() {
 		is_blocked = false; 
 		if (!is_sleeping) {
 			status = READY;
 		}
-		return;}
+		return;
+	}
 	void block() {is_blocked = true; status = BLOCKED; return;}
 	void sleep() {is_sleeping = true; status = BLOCKED;return;}
+	void wake() {
+		is_sleeping = false;
+		if (!is_blocked) {
+			status = READY;
+		}
+		return;
+	}
 	Thread(int tid);
 	Thread(int tid, void (*f)(void));
 	~Thread();
