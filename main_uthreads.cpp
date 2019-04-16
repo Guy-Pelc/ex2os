@@ -40,8 +40,8 @@ void g()
 
 void h()
 {
-	cout<<"h blocking itself"<<endl;
-	uthread_block(1);
+	cout<<"h sleep"<<endl;
+	uthread_sleep(3*pow(10,6));
 	// uthread_sleep(3*pow(10,6));
 	while(1);
 }
