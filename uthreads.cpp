@@ -238,14 +238,15 @@ void timer_handler(int signum)
 	return;
 }
 
+/* returns first free id up to MAX_THREAD_NUM-1 , or -1 if there isn't any*/
 int get_first_free_tid()
 {
 	int i = 0;
-	while (threads[i]!=0)
+	for (int i=0; i<MAX_THREAD_NUM;++i)
 	{
-		i++;
+		if (threads[i] == 0) {return i;}
 	}
-	return i;
+	return -1;
 }
 
 void print_threads()
@@ -297,8 +298,14 @@ int uthread_get_quantums(int tid)
 }
 int uthread_spawn(void (*f)(void))
 {
+
 	cout<<"uthread_spawn"<<endl;
 	int tid = get_first_free_tid();
+	if (tid == -1)
+		{
+			cout<<"failiure (not error): cannot exceed MAX_THREAD_NUM"<<endl;
+			return -1;
+		}
 	threads[tid] = new Thread(tid,f);
 	ready_pthreads.push_back(threads[tid]);
 

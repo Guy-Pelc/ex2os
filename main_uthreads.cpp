@@ -76,7 +76,11 @@ void a()
 int main()
 {
 	assert(0==uthread_init(999999));
-	uthread_spawn(&a);
+	for (int i=0;i<101;i++)
+	{
+		uthread_spawn(&a);	
+	}
+	
 	uthread_block(0);
 
 	while(1);
