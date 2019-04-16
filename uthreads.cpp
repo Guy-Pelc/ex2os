@@ -6,7 +6,7 @@
 #include <signal.h>
 #include <deque>
 #include "sleeping_threads_list.h"
-#include "s_helper.h"
+// #include "s_helper.h"
 
 
 using namespace std;
@@ -17,6 +17,8 @@ Thread *threads[MAX_THREAD_NUM] = {0};
 
 Thread* running_pthread;
 deque<Thread*> ready_pthreads;
+
+SleepingThreadsList s_threads;
 
 int running_tid;
 
@@ -269,3 +271,62 @@ int uthread_init(int quantum_usecs)
 	return 0;
 }
 
+int uthread_sleep(unsigned int usec)
+{
+	cout<<endl<<"sleep"<<endl<<endl;
+	s_threads.add(running_pthread->tid,calc_wake_up_timeval(usec));
+	running_pthread->status = BLOCKED;
+	start_s_timer();
+
+	// print_s_threads();
+	return 0;
+}	
+
+void s_timer_handler(int signum)
+{
+	cout<<endl<<"s_timer_handler,"<<endl;
+	wake_thread(s_threads.peek()->id);
+	s_threads.pop();
+	if (s_threads.peek() != nullptr)
+	{
+		start_s_timer();
+	}
+}
+
+
+void wake_thread(int id)
+{
+	cout<<"wake thread: "<<id<<endl<<endl;
+	Thread* t = get_thread_by_id(id);
+	t->status = READY;
+	ready_pthreads.push_back(t);
+	return;
+}
+
+timeval calc_wake_up_timeval(int usecs_to_sleep) {
+	// cout<<"calc_wake_up_timeval"<<usecs_to_sleep<<endl;
+	timeval now, time_to_sleep, wake_up_timeval;
+	gettimeofday(&now, nullptr);
+	time_to_sleep.tv_sec = usecs_to_sleep / 1000000;
+	time_to_sleep.tv_usec = usecs_to_sleep % 1000000;
+	timeradd(&now, &time_to_sleep, &wake_up_timeval);
+
+	// cout<<endl;
+	return wake_up_timeval;
+}
+
+void start_s_timer()
+{
+	cout<<"start_s_timer"<<endl;
+
+	timeval now, timer_val;
+	gettimeofday(&now,nullptr);
+
+
+	timersub(&(s_threads.peek()->awaken_tv),&now,&timer_val);
+	itimerval tv = {0};
+	tv.it_value = timer_val;
+	
+	setitimer(ITIMER_REAL,&tv,nullptr);
+
+}

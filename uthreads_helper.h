@@ -2,6 +2,9 @@
 #define UTHREADS_HELPER_H
 
 #include "thread.h"
+void s_timer_handler(int signum);
+
+timeval calc_wake_up_timeval(int usecs_to_sleep);
 
 void remove_from_ready_pthreads(int tid);
 
@@ -18,5 +21,8 @@ void print_threads();
 Thread* get_next_ready_thread();
 
 Thread* get_thread_by_id(int id);
+void start_s_timer();
 
+void wake_thread(int id);
+// void print_s_threads();
 #endif
