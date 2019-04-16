@@ -4,6 +4,20 @@ SleepingThreadsList::SleepingThreadsList() {
 }
 
 
+//return true if sleeping_threads is now empty
+bool SleepingThreadsList::erase(int tid)
+{
+	for (unsigned int i=0;i<sleeping_threads.size();++i)
+	{
+		if (sleeping_threads[i].id == tid)
+		{
+			sleeping_threads.erase(sleeping_threads.begin() + i);
+		}
+	}
+	return sleeping_threads.empty();
+}
+
+
 /*
  * Description: This method adds a new element to the list of sleeping
  * threads. It gets the thread's id, and the time when it needs to wake up.

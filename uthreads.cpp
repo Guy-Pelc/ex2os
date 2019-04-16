@@ -17,8 +17,7 @@ Thread *threads[MAX_THREAD_NUM] = {0};
 
 Thread* running_pthread;
 deque<Thread*> ready_pthreads;
-
-SleepingThreadsList s_threads;
+SleepingThreadsList sleeping_threads;
 
 int running_tid;
 
@@ -55,21 +54,35 @@ Thread* get_thread_by_id(int id)
 	return nullptr;
 }
 
-/* calling block(0) should exit program with error and not return
-** missing implementation for thread blocking itself */
+
 int uthread_block(int tid)
 {
 	cout<<"uthread_block: "<<tid<<endl;
-	Thread *t = get_thread_by_id(tid);
-
-	if (t->tid == 0)
+	Thread *pthread_to_block = get_thread_by_id(tid);
+	//check thread with tid exists:
+	if (pthread_to_block == nullptr)
 	{
-		cout<<"error, trying to block main thread"<<endl;
+		cerr<<"thread library error: blocking thread with tid that does not exist"<<endl;
 		return -1;
 	}
 
-	t->status = BLOCKED;
+	if (pthread_to_block->tid == 0)
+	{
+		cerr<<"thread library error:trying to block main thread"<<endl;
+		return -1;
+	}
+
+	pthread_to_block->block();
+
 	remove_from_ready_pthreads(tid);
+
+	//blocking itself - should return only after unblocked.
+	if (pthread_to_block->tid == running_pthread->tid)
+	{
+		cout<<"blocking itself"<<endl;
+		set_vtimer();
+		swap();
+	}
 
 
 	return 0;
@@ -88,29 +101,63 @@ void remove_from_ready_pthreads(int tid)
 	return;
 }
 
-/* missing implementation for terminating tid=0, by tid=0 or by any other thread*/
+
+//release memory and exit.
+void exit_program(int exit_code)
+{
+	//release memory
+	for (int i = 0; i<MAX_THREAD_NUM; ++i)
+	{
+		if (threads[i]!=nullptr)
+		{				
+			delete threads[i];
+		}
+	}
+	//exit
+	exit(exit_code);
+}
+
 int uthread_terminate(int tid)
 {
-	cout<<"uthread_terminate"<<endl;
-	// for (int i=0;i<ready_pthreads)
-	remove_from_ready_pthreads(tid);
+	cout<<"uthread_terminate "<<tid<<endl;
 
-
-	//in case thread terminates itself
-	if (tid == running_pthread->tid)
+	Thread* thread_to_terminate = get_thread_by_id(tid);
+	if (thread_to_terminate == nullptr)
 	{
-		running_pthread = nullptr;
+		cerr<<"thread library error: trying to terminate a thread with invalid tid"<<endl;
+		return -1;
 	}
 
+	if (tid == 0)
+	{
+		exit_program(0);
+	}
+
+	remove_from_ready_pthreads(tid);
+	//remove from sleeping threads:
+	bool is_empty = sleeping_threads.erase(tid);
+
+	//make sure this is necessary, if not- DELETE!
+	if (is_empty){stop_s_timer();}
+
+
+
+	int this_tid = running_pthread->tid;
+	
 	delete threads[tid];
 	threads[tid] = nullptr;
 
- 
-	
-	print_threads();	
+	//in case thread terminates itself
+	if (this_tid == tid) {
+		running_pthread = nullptr;
+		set_vtimer();
+		swap();
+	}
 
+	print_threads();	
 	return 0;
 }
+
 
 /** pops first ready thread in queue and returns it*/
 Thread* get_next_ready_pthread()
@@ -122,28 +169,26 @@ Thread* get_next_ready_pthread()
 	ready_pthreads.pop_front();
 	return next_pthread;
 
-	//nonfair version:
-	/*
-		inc_running_tid();
-		while (threads[running_tid] == 0)
-		{
-			inc_running_tid();
-		}
-
-		if (threads[running_tid] -> status != BLOCKED)
-		{
-			return threads[running_tid]	;
-		}
-
-		return get_next_ready_pthread();
-		*/
 }
 
 
 int uthread_resume(int tid)
 {
 	cout<<"uthread_resume: "<<tid<<endl;
-	ready_pthreads.push_back(threads[tid]);
+
+	Thread* thread_to_resume = get_thread_by_id(tid);
+	if (thread_to_resume == nullptr)
+	{
+		cerr<<"thread library error: trying to resume thread with invalid tid."<<endl;
+		return -1;
+	}
+
+	thread_to_resume->resume();
+
+	if (thread_to_resume->status == READY) {
+		ready_pthreads.push_back(thread_to_resume);
+	}
+	
 	return 0;
 }
 
@@ -205,31 +250,38 @@ int get_first_free_tid()
 
 void print_threads()
 {
-	for (int i = 0; i<1; ++i)
+	cout<<"thread:status= ";
+	for (int i = 0; i<MAX_THREAD_NUM; ++i)
 	{
+
 		Thread* cur_thread = threads[i];
-		cout<<"threads["<<i<<"]="<<cur_thread;
-		if (cur_thread != 0)
+		if (threads[i] != NULL)
 		{
-			cout<<"  status: "<<cur_thread->status<<endl;
+			cout<<i<<":"<<cur_thread->status<<", ";	
 		}
-		else
-		{
-			cout<<endl;
-		}
+		
+		// if (cur_thread != 0)
+		// {
+		// 	cout<<"  status: "<<cur_thread->status<<endl;
+		// }
+		// else
+		// {
+		// 	cout<<endl;
+		// }
 	}
+	cout<<endl;
 	cout<<"ready_pthreads:";
 	for (unsigned int i = 0; i<ready_pthreads.size();++i)
 	{
 		cout<<ready_pthreads[i]->tid<<",";
 	}
 	cout<<endl;
-	cout<<"quantums: ";
+	cout<<"thread:quantums= ";
 	for (unsigned int i = 0; i<MAX_THREAD_NUM;++i)
 	{	
 		if (threads[i] != NULL)
 		{
-			cout<<i<<":"<<uthread_get_quantums(i)<<",";
+			cout<<i<<":"<<uthread_get_quantums(i)<<", ";
 		}
 	}
 	cout<<endl;
@@ -278,7 +330,14 @@ int uthread_init(int quantum_usecs)
 	sa2.sa_handler = &s_timer_handler;
 	sigaction(SIGALRM,&sa2,nullptr);
 
-	//set timer
+	set_vtimer();
+	
+	return 0;
+}
+
+void set_vtimer()
+{
+		//set timer
 	itimerval tv = {0};
 
 	//TODO CORRECT THIS FOR ABOVE 1M MICROSECS
@@ -286,20 +345,19 @@ int uthread_init(int quantum_usecs)
 	// tv.it_interval.tv_sec = 1;
 	// tv.it_value.tv_sec = 1;
 
-	tv.it_interval.tv_usec = quantum_usecs;
-	tv.it_value.tv_usec = quantum_usecs;
+	tv.it_interval.tv_usec = _quantum_usecs;
+	tv.it_value.tv_usec = _quantum_usecs;
 
 	//start timer
 	setitimer(ITIMER_VIRTUAL, &tv, NULL);
-	
-	return 0;
+	return;
 }
 
 int uthread_sleep(unsigned int usec)
 {
 	cout<<endl<<"sleep"<<endl<<endl;
-	s_threads.add(running_pthread->tid,calc_wake_up_timeval(usec));
-	running_pthread->status = BLOCKED;
+	running_pthread->sleep();
+	sleeping_threads.add(running_pthread->tid,calc_wake_up_timeval(usec));
 	start_s_timer();
 
 	// print_s_threads();
@@ -309,9 +367,9 @@ int uthread_sleep(unsigned int usec)
 void s_timer_handler(int signum)
 {
 	cout<<endl<<"s_timer_handler,"<<endl;
-	wake_thread(s_threads.peek()->id);
-	s_threads.pop();
-	if (s_threads.peek() != nullptr)
+	wake_thread(sleeping_threads.peek()->id);
+	sleeping_threads.pop();
+	if (sleeping_threads.peek() != nullptr)
 	{
 		start_s_timer();
 	}
@@ -321,13 +379,13 @@ void s_timer_handler(int signum)
 void wake_thread(int id)
 {
 	cout<<"wake thread: "<<id<<endl<<endl;
-	Thread* t = get_thread_by_id(id);
-	// in case thread doesn't exist - was terminated before wake
-	if (t == nullptr) {cout<<"thread doesnt exist, returning"<<endl; return;}
+	Thread* pthread_to_block = get_thread_by_id(id);
+	// in case thread doesn'pthread_to_block exist - was terminated before wake
+	if (pthread_to_block == nullptr) {cout<<"thread doesnt exist, returning"<<endl; return;}
 
 	cout<<"ehre 325"<<endl;
-	t->status = READY;
-	ready_pthreads.push_back(t);
+	pthread_to_block->status = READY;
+	ready_pthreads.push_back(pthread_to_block);
 	return;
 }
 
@@ -342,6 +400,14 @@ timeval calc_wake_up_timeval(int usecs_to_sleep) {
 	// cout<<endl;
 	return wake_up_timeval;
 }
+void stop_s_timer()
+{
+	cout<<"stop_s_timer"<<endl;
+	itimerval tv = {0};
+	setitimer(ITIMER_REAL, &tv,nullptr);
+	return;
+}
+
 
 void start_s_timer()
 {
@@ -351,7 +417,7 @@ void start_s_timer()
 	gettimeofday(&now,nullptr);
 
 
-	timersub(&(s_threads.peek()->awaken_tv),&now,&timer_val);
+	timersub(&(sleeping_threads.peek()->awaken_tv),&now,&timer_val);
 	itimerval tv = {0};
 	tv.it_value = timer_val;
 	

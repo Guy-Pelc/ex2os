@@ -41,6 +41,13 @@ public:
     */
     wake_up_info* peek();
 
+    /*
+     * Description: remove thread with given tid.
+     * if tid doesnt exist in sleeping_threads, do nothing.
+     * return true if sleeping_threads is now empty
+    */
+    bool erase(int tid);
+
 };
 
 #endif

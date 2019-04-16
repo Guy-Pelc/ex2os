@@ -24,5 +24,11 @@ Thread* get_thread_by_id(int id);
 void start_s_timer();
 
 void wake_thread(int id);
+
+void set_vtimer();
+
+void stop_s_timer();
+
+void exit_program();
 // void print_s_threads();
 #endif

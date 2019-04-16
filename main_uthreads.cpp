@@ -2,6 +2,7 @@
 #include "thread.h"
 #include <iostream>
 #include <math.h>
+#include <assert.h>
 
 using namespace std;
 
@@ -50,8 +51,37 @@ void h()
 	// uthread_sleep(3*pow(10,6));
 	while(1);
 }
+void j()
+{
+	cout<<"from j calling terminate j"<<endl;
+	uthread_terminate(2);
+	cout<<"here"<<endl;
+	assert(false && "should not have returned!");
+	while(1);
+}
 
+void ja()
+{
+	cout<<"from j calling block j"<<endl;
+	uthread_block(1);
+	
+	assert(false && "should not have returned!");
+	while(1);
+}
+void a()
+{
+	uthread_block(0);
+	while(1);
+}
 int main()
+{
+	assert(0==uthread_init(999999));
+	uthread_spawn(&a);
+	uthread_block(0);
+
+	while(1);
+}
+int main45()
 {
 	uthread_init(999999);
 	uthread_spawn(&d);

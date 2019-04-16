@@ -23,38 +23,43 @@ where text is description, then return appropriate value (do not exit program);
 -correct return values
 -add checks for things that might fail (also in helper funcitons)
 
--read questions in moodle
+V read questions in moodle
 
 -test with tomer's tests
+
+-check that only interface functions and vars can be used
+
+-add readme and make files
+
+
+-check for memory leaks, especially when using exit(). VALGRIND will not be used in checking, since objects on the stack are also considered leaks.
 ______________________________
-2) uthread_terminate, 
+2) uthread_terminate:
 
--after terminate/block thread by itself, move directly to swap without waiting for quantum to end.
+V after terminate thread by itself, move directly to swap without waiting for quantum to end.
 
--make sure it removes the thread from all control structs.
+V make sure it removes the thread from all control structs.
 
--if no such id exists add ERROR
+V if no such id exists add ERROR
 
--if tid==0, release all memory and do exit(0)
+V if tid==0, release all memory and do exit(0)
 
--think when this function might fail and return -1;
+V think when this function might fail and return -1;
 
--make sure function does not return if thread terminates itself.
+V make sure function does not return if thread terminates itself.
 
 ________________________________
 3) uthread_block:
 
--after terminate/block thread by itself, move directly to swap without waiting for quantum to end.
+V after block thread by itself, move directly to swap without waiting for quantum to end.
 
--if no such tid exists add ERROR
+V if no such tid exists add ERROR
 
--if blocking main thread add ERROR
+V if blocking main thread add ERROR
 
--check blocking a blocked state - no effect (is it fail or success?)
+V check blocking a blocked state - no effect (success)
 
--think when this function should fail and return -1;
-
--if thread is blocked while sleeping, it needs to wait for both the sleeping period to end and for another thread to resume it!
+V think when this function should fail and return -1;
 
 ____________________________________________
 4) uthread_spawn
@@ -78,7 +83,11 @@ ________________________________________________
 
 -think when this function can fail and return -1;
 
+-make sure that resuming a sleeping function that was not blocked by (block) does nothing.
 
+-resuming main thread does nothing, since it can not be blocked
+
+-if thread is blocked while sleeping, it needs to wait for both the sleeping period to end and for another thread to resume it!
 _______________________________________________
 
 7) uthread_sleep:
@@ -89,8 +98,19 @@ _______________________________________________
 
 -think when this function could fail and return -1;
 
+-when it is time to wake, if next sleeping thread's time to wake is earlier than current time (negative difference timeval), wake that thread immediately and set timer for next thread that still has time left.
 
+-check that sleeping thread that is terminated is removed from sleeping list, and does not cause error.
 
+-check that sleep(0) works: should move the running thread to back of ready queue (and no need for sleep, since setting timer to 0 timeval will stop the timer.; also, this will not be checked by course staff 
+
+-consider adding a sleeping flag to threads, since they can be sleeping+blocked or any combination of them.
+
+-if thread is blocked while sleeping, it needs to wait for both the sleeping period to end and for another thread to resume it!
+
+-consider checking blocking , unblocking and blocking again a sleeping function.
+
+-check if there is single sleeping function that is terminated/blocked, what happens when timer expires. 
 _______________________________________________
 8) uthread_get_tid:
 
