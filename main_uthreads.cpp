@@ -41,6 +41,7 @@ void g()
 void h()
 {
 	cout<<"h blocking itself"<<endl;
+	uthread_block(1);
 	// uthread_sleep(3*pow(10,6));
 	while(1);
 }
@@ -58,7 +59,7 @@ int main()
 		if(i==pow(10,7))
 		{
 			i = 0;
-			cout<<"main loop"<<endl;
+			// cout<<"main loop"<<endl;
 		}
 	}
 }

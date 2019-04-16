@@ -5,6 +5,8 @@
 #include "uthreads_helper.h"
 #include <signal.h>
 #include <deque>
+#include "sleeping_threads_list.h"
+#include "s_helper.h"
 
 
 using namespace std;
@@ -61,8 +63,8 @@ int uthread_block(int tid)
 	}
 
 	t->status = BLOCKED;
-
 	remove_from_ready_pthreads(tid);
+
 
 	return 0;
 }
@@ -80,18 +82,24 @@ void remove_from_ready_pthreads(int tid)
 	return;
 }
 
-/* tested support only terminating from thread 0,
-	missing test for terminating itself, including when tid=0*/
+/* missing implementation for terminating tid=0, by tid=0 or by any other thread*/
 int uthread_terminate(int tid)
 {
-
+	cout<<"uthread_terminate"<<endl;
 	// for (int i=0;i<ready_pthreads)
 	remove_from_ready_pthreads(tid);
 
 
+	//in case thread terminates itself
+	if (tid == running_pthread->tid)
+	{
+		running_pthread = nullptr;
+	}
 
 	delete threads[tid];
 	threads[tid] = nullptr;
+
+ 
 	
 	print_threads();	
 
@@ -136,15 +144,22 @@ int uthread_resume(int tid)
 void swap()
 {
 	cout<<"in swap"<<endl;
-	
-	
-	// running_tid = 1;
-	// siglongjmp(threads[1]->env,1);
-	// Thread* cur_thread = get_thread_by_id(running_tid);
-	running_pthread->status = READY;	
-	ready_pthreads.push_back(running_pthread);
+	int res;
+	// if running thread terminates itself, save nothing
+	if (running_pthread == nullptr) {res = 0;}
+	// if running thread blocks itself, save state
+	else if (running_pthread->status == BLOCKED)
+		res = sigsetjmp(running_pthread->env,1);
+	// save state and push to end of ready line
+	else
+	{
+		running_pthread->status = READY;	
+		ready_pthreads.push_back(running_pthread);
+		res = sigsetjmp(running_pthread->env,1);
+	}
 
-	int res = sigsetjmp(running_pthread->env,1);
+
+	
 	if (res == 0) 
 	{
 		Thread* next_pthread = get_next_ready_pthread();
@@ -231,6 +246,11 @@ int uthread_init(int quantum_usecs)
 	struct sigaction sa = {0};
 	sa.sa_handler = &timer_handler;
 	sigaction(SIGVTALRM, &sa, NULL);
+	
+	//set sleep handler
+	struct sigaction sa2 = {0};
+	sa2.sa_handler = &s_timer_handler;
+	sigaction(SIGALRM,&sa2,nullptr);
 
 	//set timer
 	itimerval tv = {0};
