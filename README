@@ -1,0 +1,47 @@
+guy.pelc, tomer.greenberg
+Guy Pelc (203552823), Tomer Greenberg ()
+EX: 2
+
+FILES:
+blackbox.h
+sleeping_threads_list.cpp
+sleeping_threads_list.h
+thread.cpp
+thread.h
+uthreads.cpp
+uthreads_helper.h
+Makefile
+README
+
+REMARKS:
+
+
+ANSWERS:
+
+1. User threads are meant to provide a way to run several tasks in a way that seems simultaneous. For example,
+user level threads could be used in a video game software to control the movement of the character while rendering
+the complex graphics around a player. Having to do each one of them without threads would mean that the game character
+will move only when the graphics are loaded, which hurts the smoothness of the game. On the other hand, if these were
+two different processes, the OS itself would have to switch between them, creating a lot of overhead.
+
+
+2. Threads of a process share memory segments, loaded code and data. The advantage of user-level threads is that
+there is less overhead when switching between tasks, and that different tasks can share data defined by the user.
+The disadvantage of using user-level threads over starting new processes is that they share resources allocated by the
+OS, so each thread is more limited in term of availabe memory. Additionally, if one thread fails it may crash the
+entire process, which will interrupt other threads as well.
+
+
+3. When entering 'kill pid', the keyboard sends a hardware interrupt to the OS asking to use kill on the user application.
+Then OS then sends a signal to the user application which triggers the application's signal handler function for that
+signal (in this case, a SIGTERM). The user application then runs the code associated with the signal, or the default
+code provided by the OS. In this case, the application handled everything it should before exiting.
+
+
+4. Real time is the actual time counted in the system. The virtual time is associated with a single process, and is
+the time that process spent running. For example, when I use my phone to set an alarm, it uses the real time counter
+to determine when to send a signal that ends up starting the alarm. However, when I play a video and throw a grenade,
+the game uses virtual time to determine when the grenade explodes. This way, if the game is stuck or I stop it to go
+to another application, the time spent in kernel mode or in the other applications is not counted in, and when I go back
+to the game the grenade explodes after a certain amount of time spent in the game.
+

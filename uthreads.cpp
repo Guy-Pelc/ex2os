@@ -1,3 +1,5 @@
+// #define _DEBUG
+
 #include <iostream>
 #include "thread.h"
 #include "uthreads.h"
@@ -6,8 +8,13 @@
 #include <signal.h>
 #include <deque>
 #include "sleeping_threads_list.h"
-// #include "s_helper.h"
 
+
+#ifdef _DEBUG
+#define DEBUG(stuff) std::cout << (stuff);
+#else
+#define DEBUG(stuff)
+#endif
 
 using namespace std;
 
@@ -29,16 +36,6 @@ int total_quantums;
 
 
 
-// void inc_running_tid()
-// {
-// 	running_tid++;
-// 	if (running_tid == MAX_THREAD_NUM)
-// 	{
-// 		running_tid = 0;
-// 	}
-// 	return;
-// }
-
 int uthread_get_tid()
 {
 	return running_pthread->tid;
@@ -59,7 +56,8 @@ Thread* get_thread_by_id(int id)
 
 int uthread_block(int tid)
 {
-	cout<<"uthread_block: "<<tid<<endl;
+	DEBUG("uthread_block\n")
+	// cout<<"uthread_block: "<<tid<<endl;
 	Thread *pthread_to_block = get_thread_by_id(tid);
 	//check thread with tid exists:
 	if (pthread_to_block == nullptr)
@@ -81,7 +79,8 @@ int uthread_block(int tid)
 	//blocking itself - should return only after unblocked.
 	if (pthread_to_block->tid == running_pthread->tid)
 	{
-		cout<<"blocking itself"<<endl;
+		DEBUG("blocking itself\n")
+		// cout<<"blocking itself"<<endl;
 		set_vtimer();
 		swap();
 	}
@@ -125,7 +124,8 @@ int uthread_terminate(int tid)
 	//mask both signals
 	sigprocmask(SIG_BLOCK,&mask_set,nullptr);
 
-	cout<<"uthread_terminate "<<tid<<endl;
+	DEBUG("uthread_terminate\n")
+	// cout<<"uthread_terminate "<<tid<<endl;
 
 	Thread* thread_to_terminate = get_thread_by_id(tid);
 	if (thread_to_terminate == nullptr)
@@ -161,7 +161,7 @@ int uthread_terminate(int tid)
 		swap();
 	}
 
-	print_threads();	
+	// print_threads();	
 
 	sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 	return 0;
@@ -185,7 +185,8 @@ Thread* get_next_ready_pthread()
 
 int uthread_resume(int tid)
 {
-	cout<<"uthread_resume: "<<tid<<endl;
+	DEBUG("uthread_resume\n")
+	// cout<<"uthread_resume: "<<tid<<endl;
 
 	Thread* thread_to_resume = get_thread_by_id(tid);
 	if (thread_to_resume == nullptr)
@@ -208,7 +209,8 @@ int uthread_resume(int tid)
 
 void swap()
 {
-	cout<<"in swap"<<endl;
+	DEBUG("in swap\n")
+	// cout<<"in swap"<<endl;
 	int res;
 	// if running thread terminates itself, save nothing
 	if (running_pthread == nullptr) {res = 0;}
@@ -228,7 +230,8 @@ void swap()
 	{
 		Thread* next_pthread = get_next_ready_pthread();
 
-		cout<<"now changing running_tid to "<<next_pthread->tid<<endl;
+		DEBUG("now changing running_tid to\n")
+		// cout<<"now changing running_tid to "<<next_pthread->tid<<endl;
 		
 		next_pthread->quantums++;
 		total_quantums++;
@@ -236,16 +239,19 @@ void swap()
 		running_pthread = next_pthread;
 		// running_tid = next_pthread->tid;
 
-		print_threads();
+		// print_threads();
 		siglongjmp(running_pthread->env,running_pthread->tid);
 	}
 	return;
 	
 }
 
+// void print_threads(){}
+
 void timer_handler(int signum)
 {
-	cout<<"timer_handler"<<endl;
+	DEBUG("timer_handler\n")
+	// cout<<"timer_handler"<<endl;
 	swap();
 	
 	return;
@@ -261,48 +267,8 @@ int get_first_free_tid()
 	return -1;
 }
 
-void print_threads()
-{	
-	cout<<"thread:status= ";
-	for (int i = 0; i<MAX_THREAD_NUM; ++i)
-	{
 
-		Thread* cur_thread = threads[i];
-		if (threads[i] != NULL)
-		{
-			cout<<i<<":"<<cur_thread->status<<", ";	
-		}
-		
-		// if (cur_thread != 0)
-		// {
-		// 	cout<<"  status: "<<cur_thread->status<<endl;
-		// }
-		// else
-		// {
-		// 	cout<<endl;
-		// }
-	}
-	cout<<endl;
-	cout<<"ready_pthreads:";
-	for (unsigned int i = 0; i<ready_pthreads.size();++i)
-	{
-		cout<<ready_pthreads[i]->tid<<",";
-	}
-	cout<<endl;
-	cout<<"thread:quantums= ";
-	for (unsigned int i = 0; i<MAX_THREAD_NUM;++i)
-	{	
-		if (threads[i] != NULL)
-		{
-			cout<<i<<":"<<uthread_get_quantums(i)<<", ";
-		}
-	}
-	cout<<endl;
-	cout<<"total_quantums: "<<total_quantums<<endl;
-	cout<<endl;
-		// cout<<"threads[0,1,2,3] = "<<threads[0]<<","<<threads[1]<<","<<threads[2]<<","<<threads[3]<<endl;
-		// cout<<"status = "<<threads[0]->status<<","<<threads[1]->status<<","<<threads[2]->status<<","<<threads[3]->status<<endl;
-}
+
 int uthread_get_total_quantums() {return total_quantums;}
 int uthread_get_quantums(int tid)
 {
@@ -319,11 +285,13 @@ int uthread_spawn(void (*f)(void))
 	//mask signals
 	sigprocmask(SIG_BLOCK,&mask_set,nullptr);
 
-	cout<<"uthread_spawn"<<endl;
+	DEBUG("uthread_spawn\n")
+	// cout<<"uthread_spawn"<<endl;
 	int tid = get_first_free_tid();
 	if (tid == -1)
 		{
-			cout<<"failiure (not error): cannot exceed MAX_THREAD_NUM"<<endl;
+			DEBUG("failiure (not error): cannot exceed MAX_THREAD_NUM\n")
+			// cout<<"failiure (not error): cannot exceed MAX_THREAD_NUM"<<endl;
 			sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 			return -1;
 		}
@@ -336,7 +304,7 @@ int uthread_spawn(void (*f)(void))
 	}
 	ready_pthreads.push_back(threads[tid]);
 
-	print_threads();
+	// print_threads();
 
 	sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 	return tid;
@@ -350,7 +318,8 @@ int uthread_init(int quantum_usecs)
 		cerr<<"thread library error: trying to init uthread library with non-positive quantum_usecs value"<<endl;
 		return -1;
 	}
-	cout<<"uthreads_init"<<endl;
+	DEBUG("uthreads_init\n")
+	// cout<<"uthreads_init"<<endl;
 	_quantum_usecs = quantum_usecs;
 
 	//init mask_set
@@ -379,8 +348,7 @@ int uthread_init(int quantum_usecs)
 	sa.sa_handler = &timer_handler;
 
 	//mask real timer signal
-	// sigset_t set;
-	// sigaddset(&set,SIGALRM);
+
 	sa.sa_mask = mask_set;
 
 	if (sigaction(SIGVTALRM, &sa, NULL)<0)
@@ -395,8 +363,7 @@ int uthread_init(int quantum_usecs)
 	sa2.sa_handler = &s_timer_handler;
 
 	//mask virtual timer signal
-	// sigset_t set2;
-	// sigaddset(&set2,SIGALRM);
+
 	sa2.sa_mask = mask_set;
 	if (sigaction(SIGALRM,&sa2,nullptr)<0)
 	{
@@ -439,15 +406,13 @@ int uthread_sleep(unsigned int usec)
 		return -1;
 	}
 
-
-	cout<<endl<<"sleep"<<endl<<endl;
+	DEBUG("sleep")
+	// cout<<endl<<"sleep"<<endl<<endl;
 	running_pthread->sleep();
 
-	print_threads();
+	// print_threads();
 
-	// //remove from ready_threads
-	// remove_from_ready_pthreads();
-	
+
 
 	timeval wake_up_timeval; 
 	if (calc_wake_up_timeval(usec, &wake_up_timeval)<0)
@@ -471,7 +436,8 @@ int uthread_sleep(unsigned int usec)
 
 void s_timer_handler(int signum)
 {
-	cout<<endl<<"s_timer_handler"<<endl;
+	DEBUG("s_timer_handler\n")
+	// cout<<endl<<"s_timer_handler"<<endl;
 	wake_thread(sleeping_threads.peek()->id);
 	sleeping_threads.pop();
 	if (sleeping_threads.peek() != nullptr)
@@ -483,10 +449,14 @@ void s_timer_handler(int signum)
 
 void wake_thread(int id)
 {
-	cout<<"wake thread: "<<id<<endl<<endl;
+	DEBUG("wake_thread\n")
+	// cout<<"wake thread: "<<id<<endl<<endl;
 	Thread* pthread_to_wake = get_thread_by_id(id);
 	// in case thread pthread_to_wake doesnt exist - was terminated before wake, do nothing
-	if (pthread_to_wake == nullptr) {cout<<"thread doesnt exist, returning"<<endl; return;}
+	if (pthread_to_wake == nullptr) {
+		DEBUG("thread doesnt exist, returning")
+		// cout<<"thread doesnt exist, returning"<<endl; 
+		return;}
 
 	// cout<<"ehre 325"<<endl;
 
@@ -516,7 +486,8 @@ int calc_wake_up_timeval(int usecs_to_sleep,timeval* wake_up_timeval) {
 }
 int stop_s_timer()
 {
-	cout<<"stop_s_timer"<<endl;
+	DEBUG("stop_s_timer\n")
+	// cout<<"stop_s_timer"<<endl;
 	itimerval tv = {0};
 	if (setitimer(ITIMER_REAL, &tv,nullptr)<0)
 	{
@@ -529,7 +500,8 @@ int stop_s_timer()
 
 int start_s_timer()
 {
-	cout<<"start_s_timer"<<endl;
+	DEBUG("start_s_timer\n")
+	// cout<<"start_s_timer"<<endl;
 
 	timeval now, timer_val;
 	if (gettimeofday(&now,nullptr)<0)
