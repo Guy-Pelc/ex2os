@@ -63,36 +63,36 @@ V think when this function should fail and return -1;
 
 ____________________________________________
 4) uthread_spawn
--in spawn, make sure we do not exceed MAX_THREADS, else fail (return -1)
+V in spawn, make sure we do not exceed MAX_THREADS, else fail (return -1)
 
--change return val to id of created thread.
+V change return val to id of created thread.
 _______________________________________________
 5) uthread_init:
--fix quantum size to support over 999,999 microsecs
+V fix quantum size to support over 999,999 microsecs
 
--check for non-positive input, error otherwise
+V check for non-positive input, error otherwise
 
--think when this function can fail and return -1.
+V think when this function can fail and return -1.
 
 ________________________________________________
 6) uthread_resume:
 
--make sure resuming ready or running has no effect (is it fail or success?)
+V make sure resuming ready or running has no effect (returns 0)
 
--if no such thread exists - ADD ERROR
+V if no such thread exists - ADD ERROR
 
--think when this function can fail and return -1;
+V think when this function can fail and return -1;
 
 -make sure that resuming a sleeping function that was not blocked by (block) does nothing.
 
--resuming main thread does nothing, since it can not be blocked
+V resuming main thread does nothing, since it can not be blocked
 
 -if thread is blocked while sleeping, it needs to wait for both the sleeping period to end and for another thread to resume it!
 _______________________________________________
 
 7) uthread_sleep:
 
--if main thread calls this - ADD ERROR
+V if main thread calls this - ADD ERROR
 
 -add immediate scheduling decision.
 

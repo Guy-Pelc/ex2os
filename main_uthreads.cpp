@@ -71,17 +71,18 @@ void ja()
 void a()
 {
 	uthread_block(0);
+	uthread_resume(0);
+	uthread_resume(15);
 	while(1);
 }
 int main()
 {
-	assert(0==uthread_init(999999));
-	for (int i=0;i<101;i++)
+	assert(0==uthread_init(3*pow(10,6)+400));
+	for (int i=0;i<3;++i)
 	{
-		uthread_spawn(&a);	
+		cout<<uthread_spawn(&a)<<endl;	
 	}
 	
-	uthread_block(0);
 
 	while(1);
 }

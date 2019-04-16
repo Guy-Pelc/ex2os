@@ -182,9 +182,12 @@ int uthread_resume(int tid)
 		cerr<<"thread library error: trying to resume thread with invalid tid."<<endl;
 		return -1;
 	}
-
+	//resuming a READY or RUNNING thread has no effect
+	if ((thread_to_resume->status == READY) or(thread_to_resume->status == RUNNING)) {return 0;}
+	
 	thread_to_resume->resume();
 
+	// not trivial, is false for sleeping thread
 	if (thread_to_resume->status == READY) {
 		ready_pthreads.push_back(thread_to_resume);
 	}
@@ -241,7 +244,6 @@ void timer_handler(int signum)
 /* returns first free id up to MAX_THREAD_NUM-1 , or -1 if there isn't any*/
 int get_first_free_tid()
 {
-	int i = 0;
 	for (int i=0; i<MAX_THREAD_NUM;++i)
 	{
 		if (threads[i] == 0) {return i;}
@@ -250,7 +252,7 @@ int get_first_free_tid()
 }
 
 void print_threads()
-{
+{	
 	cout<<"thread:status= ";
 	for (int i = 0; i<MAX_THREAD_NUM; ++i)
 	{
@@ -307,21 +309,36 @@ int uthread_spawn(void (*f)(void))
 			return -1;
 		}
 	threads[tid] = new Thread(tid,f);
+	if (threads[tid] == 0)
+	{
+		cerr<<"system error: failed to allocate memory to thread"<<endl;
+		return -1;
+	}
 	ready_pthreads.push_back(threads[tid]);
 
 	print_threads();
 
-	return 0;
+	return tid;
 }
 
 /** currently supports up to 999,999 microsecs */
 int uthread_init(int quantum_usecs)
 {
+	if (quantum_usecs<=0)
+	{
+		cerr<<"thread library error: trying to init uthread library with non-positive quantum_usecs value"<<endl;
+		return -1;
+	}
 	cout<<"uthreads_init"<<endl;
 	_quantum_usecs = quantum_usecs;
 
 	//init main thread
 	threads[0] = new Thread(0);
+	if (threads[0] == 0)
+	{
+		cerr<<"system error: failed to allocate memory to thread"<<endl;
+		return -1;
+	}
 	running_tid = 0;
 	running_pthread = threads[0];
 	running_pthread->quantums++;
@@ -342,18 +359,17 @@ int uthread_init(int quantum_usecs)
 	return 0;
 }
 
+/** currently supports only up to 999,999 microsecs*/
 void set_vtimer()
 {
 		//set timer
 	itimerval tv = {0};
 
-	//TODO CORRECT THIS FOR ABOVE 1M MICROSECS
 
-	// tv.it_interval.tv_sec = 1;
-	// tv.it_value.tv_sec = 1;
-
-	tv.it_interval.tv_usec = _quantum_usecs;
-	tv.it_value.tv_usec = _quantum_usecs;
+	tv.it_interval.tv_usec = _quantum_usecs % 1000000;
+	tv.it_interval.tv_sec = _quantum_usecs / 1000000;
+	tv.it_value.tv_usec = _quantum_usecs % 1000000;
+	tv.it_value.tv_sec = _quantum_usecs / 1000000;
 
 	//start timer
 	setitimer(ITIMER_VIRTUAL, &tv, NULL);
@@ -362,10 +378,18 @@ void set_vtimer()
 
 int uthread_sleep(unsigned int usec)
 {
+	if (running_pthread->tid == 0)
+	{
+		cerr<<"thread library error: main can not be blocked"<<endl;
+		return -1;
+	}
+
+
 	cout<<endl<<"sleep"<<endl<<endl;
 	running_pthread->sleep();
 	sleeping_threads.add(running_pthread->tid,calc_wake_up_timeval(usec));
 	start_s_timer();
+
 
 	// print_s_threads();
 	return 0;
