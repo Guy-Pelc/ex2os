@@ -70,7 +70,7 @@ void ja()
 }
 void a()
 {
-	uthread_sleep(1*pow(10,6));
+	uthread_sleep(0);
 	
 	while(1);
 }

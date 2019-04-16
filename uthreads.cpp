@@ -13,6 +13,8 @@ using namespace std;
 
 
 //assume pointer to thread with tid=i is at threads[i]
+sigset_t mask_set;
+
 Thread *threads[MAX_THREAD_NUM] = {0};
 
 Thread* running_pthread;
@@ -119,12 +121,17 @@ void exit_program(int exit_code)
 
 int uthread_terminate(int tid)
 {
+
+	//mask both signals
+	sigprocmask(SIG_BLOCK,&mask_set,nullptr);
+
 	cout<<"uthread_terminate "<<tid<<endl;
 
 	Thread* thread_to_terminate = get_thread_by_id(tid);
 	if (thread_to_terminate == nullptr)
 	{
 		cerr<<"thread library error: trying to terminate a thread with invalid tid"<<endl;
+		sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 		return -1;
 	}
 
@@ -155,6 +162,8 @@ int uthread_terminate(int tid)
 	}
 
 	print_threads();	
+
+	sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 	return 0;
 }
 
@@ -307,24 +316,29 @@ int uthread_get_quantums(int tid)
 }
 int uthread_spawn(void (*f)(void))
 {
+	//mask signals
+	sigprocmask(SIG_BLOCK,&mask_set,nullptr);
 
 	cout<<"uthread_spawn"<<endl;
 	int tid = get_first_free_tid();
 	if (tid == -1)
 		{
 			cout<<"failiure (not error): cannot exceed MAX_THREAD_NUM"<<endl;
+			sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 			return -1;
 		}
 	threads[tid] = new Thread(tid,f);
 	if (threads[tid] == 0)
 	{
 		cerr<<"system error: failed to allocate memory to thread"<<endl;
+		sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 		return -1;
 	}
 	ready_pthreads.push_back(threads[tid]);
 
 	print_threads();
 
+	sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 	return tid;
 }
 
@@ -339,11 +353,20 @@ int uthread_init(int quantum_usecs)
 	cout<<"uthreads_init"<<endl;
 	_quantum_usecs = quantum_usecs;
 
+	//init mask_set
+	sigemptyset(&mask_set);
+	sigaddset(&mask_set,SIGALRM);
+	sigaddset(&mask_set,SIGVTALRM);
+
+	//mask init function
+	sigprocmask(SIG_BLOCK,&mask_set,nullptr);
+
 	//init main thread
 	threads[0] = new Thread(0);
 	if (threads[0] == 0)
 	{
 		cerr<<"system error: failed to allocate memory to thread"<<endl;
+		sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 		return -1;
 	}
 	// running_tid = 0;
@@ -354,23 +377,36 @@ int uthread_init(int quantum_usecs)
 	//set hanlder
 	struct sigaction sa = {0};
 	sa.sa_handler = &timer_handler;
+
+	//mask real timer signal
+	// sigset_t set;
+	// sigaddset(&set,SIGALRM);
+	sa.sa_mask = mask_set;
+
 	if (sigaction(SIGVTALRM, &sa, NULL)<0)
 	{
 		cerr<<"system error: failed to update sigaction for virtual timer"<<endl;
+		sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 		return -1;
 	}
 	
 	//set sleep handler
 	struct sigaction sa2 = {0};
 	sa2.sa_handler = &s_timer_handler;
+
+	//mask virtual timer signal
+	// sigset_t set2;
+	// sigaddset(&set2,SIGALRM);
+	sa2.sa_mask = mask_set;
 	if (sigaction(SIGALRM,&sa2,nullptr)<0)
 	{
 		cerr<<"system error: failed to update sigaction for real timer"<<endl;
+		sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 		return -1;
 	}
 
 	set_vtimer();
-	
+	sigprocmask(SIG_UNBLOCK,&mask_set,nullptr);
 	return 0;
 }
 
