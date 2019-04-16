@@ -1,3 +1,6 @@
+#ifndef THREAD_H
+#define THREAD_H
+
 #include <setjmp.h>
 
 #define STACK_SIZE 4096
@@ -18,3 +21,5 @@ public:
 	Thread(int tid, void (*f)(void));
 	~Thread();
 };
+
+#endif

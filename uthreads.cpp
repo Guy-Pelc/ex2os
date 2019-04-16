@@ -2,23 +2,23 @@
 #include "thread.h"
 #include "uthreads.h"
 #include "sys/time.h"
-#include "signal.h"
-#include "uthread_helper.h"
+#include "uthreads_helper.h"
+#include <signal.h>
+#include <deque>
+
+
 using namespace std;
 
 
-
+//assume pointer to thread with tid=i is at threads[i]
 Thread *threads[MAX_THREAD_NUM] = {0};
+
+Thread* running_pthread;
+deque<Thread*> ready_pthreads;
+
 int running_tid;
 
 int _quantum_usecs;
-
-int say_hi()
-{
-	cout<<"hi from uthreads"<<endl;
-	return 0;
-}
-
 
 
 
@@ -34,7 +34,7 @@ void inc_running_tid()
 
 int uthread_get_tid()
 {
-	return running_tid;
+	return running_pthread->tid;
 }
 
 /** on failiure returns NULL, success returns pointer to thread*/
@@ -44,12 +44,14 @@ Thread* get_thread_by_id(int id)
 	{
 		if (threads[i]->tid == id) {return threads[i];}
 	}
-	return NULL;
+	return nullptr;
 }
 
-/* calling block(0) should exit program with error and not return*/
+/* calling block(0) should exit program with error and not return
+** missing implementation for thread blocking itself */
 int uthread_block(int tid)
 {
+	cout<<"uthread_block: "<<tid<<endl;
 	Thread *t = get_thread_by_id(tid);
 
 	if (t->tid == 0)
@@ -60,27 +62,54 @@ int uthread_block(int tid)
 
 	t->status = BLOCKED;
 
-
-
+	remove_from_ready_pthreads(tid);
 
 	return 0;
+}
+
+//remove from ready queue (might not be there if it is running/blocked)
+void remove_from_ready_pthreads(int tid)
+{
+	for (unsigned int i=0;i<ready_pthreads.size();++i)
+	{
+		if (ready_pthreads[i]->tid == tid)
+		{
+			ready_pthreads.erase(ready_pthreads.begin() + i);
+		}
+	}
+	return;
 }
 
 /* tested support only terminating from thread 0,
 	missing test for terminating itself, including when tid=0*/
 int uthread_terminate(int tid)
 {
+
+	// for (int i=0;i<ready_pthreads)
+	remove_from_ready_pthreads(tid);
+
+
+
 	delete threads[tid];
-	threads[tid] = 0;
+	threads[tid] = nullptr;
 	
 	print_threads();	
 
 	return 0;
 }
 
-/* this recursive algorithm will terminate, since main thread cannot be blocked.*/
-Thread* get_next_ready_thread()
+/** pops first ready thread in queue and returns it*/
+Thread* get_next_ready_pthread()
 {
+	cout<<"get_next_ready_pthread"<<endl;
+	fflush(stdout);
+	//v2
+	Thread* next_pthread = ready_pthreads[0];
+	ready_pthreads.pop_front();
+	return next_pthread;
+
+	//nonfair version:
+	/*
 		inc_running_tid();
 		while (threads[running_tid] == 0)
 		{
@@ -92,9 +121,18 @@ Thread* get_next_ready_thread()
 			return threads[running_tid]	;
 		}
 
-		return get_next_ready_thread();
+		return get_next_ready_pthread();
+		*/
 }
-/** currently swaps by incrementing order */
+
+
+int uthread_resume(int tid)
+{
+	cout<<"uthread_resume: "<<tid<<endl;
+	ready_pthreads.push_back(threads[tid]);
+	return 0;
+}
+
 void swap()
 {
 	cout<<"in swap"<<endl;
@@ -103,18 +141,21 @@ void swap()
 	// running_tid = 1;
 	// siglongjmp(threads[1]->env,1);
 	// Thread* cur_thread = get_thread_by_id(running_tid);
-	threads[running_tid]->status = READY;	
+	running_pthread->status = READY;	
+	ready_pthreads.push_back(running_pthread);
 
-	int res = sigsetjmp(threads[running_tid]->env,1);
+	int res = sigsetjmp(running_pthread->env,1);
 	if (res == 0) 
 	{
-		Thread* next_threadp = get_next_ready_thread();
+		Thread* next_pthread = get_next_ready_pthread();
 
-
-		cout<<"now changing running_tid to "<<running_tid<<endl;
+		cout<<"now changing running_tid to "<<next_pthread->tid<<endl;
 		
 		
-		threads[running_tid]->status = RUNNING;	
+		next_pthread->status = RUNNING;
+		running_pthread = next_pthread;
+		running_tid = next_pthread->tid;
+
 		print_threads();
 		siglongjmp(threads[running_tid]->env,threads[running_tid]->tid);
 	}
@@ -142,7 +183,7 @@ int get_first_free_tid()
 
 void print_threads()
 {
-	for (int i = 0; i<4; i++)
+	for (int i = 0; i<2; ++i)
 	{
 		Thread* cur_thread = threads[i];
 		cout<<"threads["<<i<<"]="<<cur_thread;
@@ -155,6 +196,12 @@ void print_threads()
 			cout<<endl;
 		}
 	}
+	cout<<"ready_pthreads:";
+	for (unsigned int i = 0; i<ready_pthreads.size();++i)
+	{
+		cout<<ready_pthreads[i]->tid<<",";
+	}
+	cout<<endl;
 		// cout<<"threads[0,1,2,3] = "<<threads[0]<<","<<threads[1]<<","<<threads[2]<<","<<threads[3]<<endl;
 		// cout<<"status = "<<threads[0]->status<<","<<threads[1]->status<<","<<threads[2]->status<<","<<threads[3]->status<<endl;
 }
@@ -163,6 +210,7 @@ int uthread_spawn(void (*f)(void))
 	cout<<"uthread_spawn"<<endl;
 	int tid = get_first_free_tid();
 	threads[tid] = new Thread(tid,f);
+	ready_pthreads.push_back(threads[tid]);
 
 	print_threads();
 
@@ -177,6 +225,7 @@ int uthread_init(int quantum_usecs)
 	//init main thread
 	threads[0] = new Thread(0);
 	running_tid = 0;
+	running_pthread = threads[0];
 
 	//set hanlder
 	struct sigaction sa = {0};
